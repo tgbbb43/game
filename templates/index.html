@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>ניהול משחקים - Eli Pro</title>
+</head>
+<body>
+    <button id="theme-btn" class="theme-toggle">🌙</button>
+    <button id="lang-btn" class="lang-toggle">EN</button>
+    <div class="container">
+        <div id="auth-bar" style="display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; background: var(--form-bg); padding: 10px; border-radius: 8px;">
+            <!-- יתמלא על ידי JS -->
+            <div id="auth-loading">טוען...</div>
+            <div id="auth-guest" style="display:none;">
+                <input type="text" id="login-user" placeholder="משתמש" style="padding:5px;">
+                <input type="password" id="login-pass" placeholder="סיסמה" style="padding:5px;">
+                <button onclick="handleLogin()" style="padding:5px 15px; cursor:pointer;">כניסה</button>
+                <button onclick="handleSignup()" style="padding:5px 15px; cursor:pointer; background:#27ae60; color:white; border:none; border-radius:4px;">הרשמה</button>
+            </div>
+            <div id="auth-user" style="display:none;">
+                שלום, <a href="#" id="profile-link" style="color:white; font-weight:bold;"><span id="display-username"></span></a> 
+                <span id="notif-badge" style="background: #e74c3c; color: white; border-radius: 50%; padding: 2px 7px; font-size: 11px; cursor: pointer; display: none;" onclick="showNotifications()">0</span>
+                (<span id="display-role"></span>)! 
+                <button onclick="handleLogout()" style="padding:5px 10px; cursor:pointer;">התנתק</button>
+            </div>
+        </div>
+
+        <h1 data-i18n="app_title">רשימת משחקים (Pro)</h1>
+        
+        <!-- שורת חיפוש משחקים באתר -->
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="site-search" data-i18n-placeholder="search_placeholder" placeholder="חפש משחק באתר..." oninput="filterGames()" style="width: 100%; border: 2px solid #67c1f5;">
+        </div>
+
+        <!-- תגיות סינון לפי ז'אנר -->
+        <div class="genre-tags-container" id="genre-tags">
+            <button class="tag-btn active" onclick="filterByGenre('All')" data-genre="All" data-i18n="all_genres">הכל</button>
+            <!-- כאן יתווספו התגיות באופן דינמי על ידי JS -->
+        </div>
+
+        <div id="game-form">
+            <div style="display: flex; gap: 10px; grid-column: span 2;">
+                <input type="text" id="game-title" data-i18n-placeholder="add_search_placeholder" placeholder="חפש שם של משחק או סדרה (לדוגמה: Call of Duty)" style="flex: 1;">
+                <select id="platform-filter" style="width: auto; background: var(--input-bg); color: var(--text-color); border: 1px solid #67c1f5;">
+                    <option value="">כל הפלטפורמות</option>
+                    <option value="4">PC</option>
+                    <option value="187">PS5</option>
+                    <option value="186">Xbox Series S/X</option>
+                </select>
+                <button type="button" onclick="searchSeries()" style="width: auto; padding: 0 20px; background: #4c6b22;">חפש בסדרות</button>
+            </div>
+            
+            <select id="series-results" style="display: none; grid-column: span 2; background: var(--input-bg); color: var(--text-color); border-color: #67c1f5;">
+                <!-- יתמלא בתוצאות חיפוש -->
+            </select>
+
+            <select id="game-genre">
+                <option value="Action">פעולה</option>
+                <option value="Adventure">הרפתקה</option>
+                <option value="RPG">תפקידים</option>
+                <option value="Strategy">אסטרטגיה</option>
+                <option value="Sports">ספורט</option>
+                <option value="Shooting">יריות</option>
+                <option value="Puzzle">פאזלים</option>
+                <option value="Simulation">סימולציה</option>
+                <option value="Horror">אימה</option>
+                <option value="Racing">מרוצים</option>
+            </select>
+            <input type="number" id="game-rating" min="0" max="100" placeholder="ציון מבקרים (0-100)">
+            <input type="date" id="game-release-date" title="תאריך יציאה">
+            <textarea id="game-desc" placeholder="תיאור/המלצה על המשחק..."></textarea>
+            <button id="add-btn">הוסף משחק</button>
+        </div>
+
+        <!-- סרגל סטטיסטיקה -->
+        <div class="stats-bar" id="stats-bar">
+            <div class="stats-item">משחקים בספרייה: <span id="total-games">0</span></div>
+            <div class="stats-item">ציון קהל ממוצע: <span id="avg-score">0</span>%</div>
+        </div>
+
+        <!-- סרגל שליטה על פריסת הטורים -->
+        <div class="layout-control-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: var(--card-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-weight: bold; color: #67c1f5;">מיון:</span>
+                <select id="sort-select" onchange="sortGames(this.value)" style="background: #1b2838; color: white; border: 1px solid #67c1f5; padding: 5px; border-radius: 4px;">
+                    <option value="date">תאריך יציאה (חדש קודם)</option>
+                    <option value="score">ציון גבוה קודם</option>
+                    <option value="title">שם (א-ת)</option>
+                </select>
+            </div>
+            <div class="layout-buttons">
+                <span style="font-weight: bold; color: #67c1f5; margin-left: 10px;">טורים:</span>
+                <button onclick="changeLayout(1)" class="layout-btn">1</button>
+                <button onclick="changeLayout(2)" class="layout-btn">2</button>
+                <button onclick="changeLayout(3)" class="layout-btn">3</button>
+                <button onclick="changeLayout(4)" class="layout-btn">4</button>
+            </div>
+        </div>
+
+        <ul id="game-list">
+            <!-- כאן יוצגו המשחקים שיגיעו מה-API -->
+        </ul>
+
+        <!-- פאנל ניהול משתמשים למנהלים בלבד -->
+        <div id="admin-panel" style="display: none; margin-top: 50px; background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid #67c1f5;">
+            <h2 style="color: #67c1f5;">ניהול משתמשים (מבקרים/מנהלים)</h2>
+            
+            <!-- טופס יצירת מבקרים חדשים - נגיש רק בתוך פאנל הניהול -->
+            <div id="create-critic-form" style="margin-bottom: 25px; padding: 15px; background: var(--form-bg); border-radius: 8px;">
+                <h3 style="color: white; margin-top: 0;">הוספת מבקר חדש למערכת</h3>
+                <input type="text" id="new-critic-user" placeholder="שם משתמש למבקר" style="padding:8px; margin-bottom: 5px;">
+                <input type="password" id="new-critic-pass" placeholder="סיסמה זמנית" style="padding:8px; margin-bottom: 5px;">
+                <button onclick="handleCreateCritic()" style="padding:8px 20px; background:#27ae60; color:white; border:none; border-radius:4px; cursor:pointer; font-weight: bold;">צור חשבון מבקר</button>
+            </div>
+
+            <div style="margin-bottom: 25px; padding: 15px; background: #8e44ad; border-radius: 8px; color: white;">
+                <h3 style="margin-top: 0;">פעולות אוטומטיות (AI)</h3>
+                <p>מילוי תיאורים חסרים לכל המשחקים בספרייה באמצעות Gemini.</p>
+                <button onclick="handleGenerateAllDescriptions()" style="padding:10px 20px; background:white; color:#8e44ad; border:none; border-radius:4px; cursor:pointer; font-weight: bold;">🤖 ייצור תיאורים חסרים</button>
+            </div>
+
+            <table style="width: 100%; color: white; border-collapse: collapse;">
+                <thead><tr><th>משתמש</th><th>תפקיד</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+                <tbody id="user-list-admin"></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        const gameList = document.getElementById('game-list');
+        let allGamesData = []; // שמירת הנתונים לסינון מהיר
+
+        // מערכת אימות - Auth
+        async function checkAuth() {
+            const res = await fetch('/me');
+            const data = await res.json();
+            const guestDiv = document.getElementById('auth-guest');
+            const userDiv = document.getElementById('auth-user');
+            const loading = document.getElementById('auth-loading');
+            const gameForm = document.getElementById('game-form');
+            const adminPanel = document.getElementById('admin-panel');
+            loading.style.display = 'none';
+
+            if (data.logged_in) {
+                guestDiv.style.display = 'none';
+                userDiv.style.display = 'block';
+                document.getElementById('display-username').innerText = data.user.username;
+                document.getElementById('profile-link').href = `/profile/${data.user.username}`;
+                document.getElementById('display-role').innerText = 
+                    data.user.role === 'developer' ? 'אדמין' : (data.user.role === 'critic' ? 'מבקר' : 'משתמש');
+                
+                gameForm.style.display = (data.user.role === 'critic' || data.user.role === 'developer') ? 'grid' : 'none';
+                if (data.user.role === 'developer' || data.user.role === 'critic') { 
+                    adminPanel.style.display = 'block'; loadAdminUsers(); 
+                }
+                
+                window.currentUser = data.user;
+            } else {
+                guestDiv.style.display = 'block';
+                userDiv.style.display = 'none';
+                gameForm.style.display = 'none'; // אורחים לא יכולים להוסיף משחקים
+                window.currentUser = null;
+            }
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('login-user').value;
+            const password = document.getElementById('login-pass').value;
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username, password})
+            });
+            if (res.ok) location.reload(); else alert("שגיאה בהתחברות");
+        }
+
+        async function handleSignup() {
+            const username = document.getElementById('login-user').value;
+            const password = document.getElementById('login-pass').value;
+            const res = await fetch('/signup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username, password})
+            });
+            if (res.ok) alert("נרשמת בהצלחה! עכשיו אפשר להיכנס"); else alert("שגיאה בהרשמה");
+        }
+
+        // פונקציה ליצירת מבקר חדש - מופעלת מהממשק המנהלי
+        async function handleCreateCritic() {
+            const username = document.getElementById('new-critic-user').value;
+            const password = document.getElementById('new-critic-pass').value;
+            const res = await fetch('/admin/create-critic', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username, password})
+            });
+            if (res.ok) {
+                alert("חשבון מבקר נוצר בהצלחה");
+                document.getElementById('new-critic-user').value = '';
+                document.getElementById('new-critic-pass').value = '';
+                loadAdminUsers();
+            } else alert("שגיאה ביצירת מבקר - וודא שאין משתמש עם שם זהה");
+        }
+
+        async function handleLogout() {
+            await fetch('/logout', {method: 'POST'});
+            location.reload();
+        }
+
+        // ניהול משתמשים לאדמין
+        async function loadAdminUsers() {
+            const res = await fetch('/users');
+            const users = await res.json();
+            const tbody = document.getElementById('user-list-admin');
+            tbody.innerHTML = users.map(u => `
+                <tr style="border-bottom: 1px solid #2a475e;">
+                    <td>${u.username}</td>
+                    <td>${u.role}</td>
+                    <td><button onclick="deleteUser('${u._id}')" style="background: red; border: none; color: white; border-radius: 4px; padding: 2px 8px; cursor: pointer;">מחק</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteUser(id) {
+            if (confirm('למחוק משתמש זה?')) {
+                await fetch(`/users/${id}`, { method: 'DELETE' });
+                loadAdminUsers();
+            }
+        }
+
+        async function toggleBlockUser(id) {
+            await fetch(`/users/${id}/block`, { method: 'PATCH' });
+            loadAdminUsers();
+        }
+
+        // פונקציה לשינוי כמות הטורים ברשימה
+        function changeLayout(cols) {
+            const list = document.getElementById('game-list');
+            list.className = 'cols-' + cols;
+        }
+
+        // פונקציה עזר לדגימת צבע מייצג מתמונה
+        function getRepresentativeColorFromImage(imageUrl, fallbackColor, callback) {
+            const img = new Image();
+            img.crossOrigin = "Anonymous"; // ניסיון לאפשר CORS
+            img.src = imageUrl;
+
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    ctx.drawImage(img, 0, 0);
+
+                    // דוגמים פיקסל אחד מהמרכז (או כל מיקום אחר)
+                    // זהו קירוב לצבע "דומיננטי" ומהיר יותר מניתוח מלא
+                    const pixelData = ctx.getImageData(canvas.width / 2, canvas.height / 2, 1, 1).data;
+                    let r = pixelData[0];
+                    let g = pixelData[1];
+                    let b = pixelData[2];
+
+                    // מחזירים את הצבע בפורמט RGBA עם שקיפות
+                    callback(`rgba(${r}, ${g}, ${b}, 0.4)`);
+                } catch (e) {
+                    // שגיאה (לרוב SecurityError בגלל CORS) - משתמשים בצבע חלופי
+                    console.warn("Could not get image data for ripple (likely CORS issue or canvas error):", e);
+                    callback(fallbackColor);
+                }
+            };
+
+            img.onerror = () => {
+                // כשל בטעינת התמונה - משתמשים בצבע חלופי
+                console.warn("Image failed to load for color extraction:", imageUrl);
+                callback(fallbackColor);
+            };
+        }
+
+        // פונקציה ליצירת אפקט אדווה (Ripple)
+        function createRipple(event, imageUrl) {
+            const card = event.currentTarget;
+            const circle = document.createElement("span");
+            const diameter = Math.max(card.clientWidth, card.clientHeight);
+            const radius = diameter / 2;
+
+            const rect = card.getBoundingClientRect();
+
+            circle.style.width = circle.style.height = `${diameter}px`;
+            circle.style.left = `${event.clientX - rect.left - radius}px`;
+            circle.style.top = `${event.clientY - rect.top - radius}px`;
+            circle.classList.add("ripple");
+            
+            // קביעת צבע חלופי שמתאים למצב כהה/בהיר
+            const isLightMode = document.body.classList.contains('light-mode');
+            const fallbackRippleColor = isLightMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.4)';
+
+            // מנסים לדגום צבע מהתמונה באופן אסינכרוני
+            getRepresentativeColorFromImage(imageUrl, fallbackRippleColor, (color) => {
+                circle.style.background = color; // הגדרת צבע הרקע של האדווה
+                card.appendChild(circle);
+                circle.addEventListener('animationend', () => circle.remove());
+            });
+        }
+
+        // פונקציה לטעינת המשחקים מהשרת
+        async function fetchGames() {
+            try {
+                const response = await fetch('/game');
+                const games = await response.json();
+                
+                // בדיקה אם הנתונים הם מערך לפני שננסה לרנדר
+                if (Array.isArray(games)) {
+                    allGamesData = games;
+                applyFilters(); // במקום לרנדר הכל, נפעיל את הפילטרים הקיימים
+                } else {
+                    console.error('API Error:', games.message);
+                    gameList.innerHTML = `<p style="color:red">שגיאה בטעינת נתונים: ${games.message}</p>`;
+                }
+            } catch (error) {
+                console.error('Error fetching games:', error);
+            }
+        }
+
+        let currentGenreFilter = 'All';
+
+        // פונקציה לסינון לפי ז'אנר
+        function filterByGenre(genre) {
+            currentGenreFilter = genre;
+            
+            // עדכון ויזואלי של הכפתור הפעיל
+            document.querySelectorAll('.tag-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-genre') === genre);
+            });
+            
+            applyFilters();
+        }
+
+        // פונקציית סינון משולבת (חיפוש + ז'אנר)
+        function filterGames() {
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('site-search').value.toLowerCase();
+            const filtered = allGamesData.filter(g => {
+                const matchesSearch = g.title.toLowerCase().includes(searchTerm);
+                const matchesGenre = currentGenreFilter === 'All' || g.genre === currentGenreFilter;
+                return matchesSearch && matchesGenre;
+            });
+            renderGames(filtered);
+        }
+
+        // פונקציית מיון - חסרה בקוד שלך
+        function sortGames(criteria) {
+            if (criteria === 'score') {
+                allGamesData.sort((a, b) => (b.critic_score || 0) - (a.critic_score || 0));
+            } else if (criteria === 'date') {
+                allGamesData.sort((a, b) => new Date(b.release_date || 0) - new Date(a.release_date || 0));
+            } else if (criteria === 'title') {
+                allGamesData.sort((a, b) => a.title.localeCompare(b.title));
+            }
+            applyFilters();
+        }
+
+        // עדכון סטטיסטיקה - חסרה בקוד שלך
+        function updateStats(games) {
+            document.getElementById('total-games').innerText = games.length;
+            const avg = games.length > 0 
+                ? Math.round(games.reduce((acc, g) => acc + (g.audience_score || 0), 0) / games.length) 
+                : 0;
+            document.getElementById('avg-score').innerText = avg;
+        }
+
+        // פונקציה להצגת המשחקים על המסך
+        function renderGames(games) {
+            gameList.innerHTML = '';
+            updateStats(games); // עדכון המספרים בסרגל העליון
+            games.forEach(game => {
+                const li = document.createElement('li');
+                li.className = `game-item ${game.completed ? 'completed' : ''}`;
+                
+                // הפיכת כל הכרטיסייה לקישור, תוך התעלמות מלחיצה על כפתורים
+                li.onclick = (e) => { // שינוי כאן: העברת imageUrl לפונקציה createRipple
+                    const imgElement = li.querySelector('.game-card-img');
+                    const currentImageUrl = imgElement ? imgElement.src : '';
+                    createRipple(e, currentImageUrl);
+                    if (!e.target.closest('button')) {
+                        // השהיה קלה למעבר דף כדי לראות את האדווה
+                        setTimeout(() => window.location.href = `/game-view/${game._id}`, 150);
+                    }
+                };
+                
+                // בדיקה מה ה-URL שמגיע מהשרת
+                // הוספת timestamp כדי למנוע מהדפדפן להשתמש בתמונה ישנה מהזיכרון
+                const imageUrl = game.image_url ? `${game.image_url}?t=${new Date().getTime()}` : `https://placehold.co/600x400?text=No+Image`;
+                
+                console.log(`Rendering game: ${game.title}, Image: ${imageUrl}`);
+                
+                li.innerHTML = `
+                    <div class="game-card-image-container">
+                        <img src="${imageUrl}" alt="${game.title}" class="game-card-img" 
+                             onerror="console.error('Failed to load image:', this.src); this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="image-fallback">${game.title}</div>
+                    </div>
+                    <div class="game-card-content">
+                        <div class="game-info">
+                            <div>
+                                <strong><a href="/game-view/${game._id}" style="color: inherit; text-decoration: none; border-bottom: 1px solid transparent;" onmouseover="this.style.borderBottom='1px solid white'" onmouseout="this.style.borderBottom='1px solid transparent'">${game.title}</a></strong>
+                                <span class="genre-badge">${game.genre || 'כללי'}</span>
+                                ${game.release_date ? `<span class="genre-badge" style="background:#2a475e; color:#67c1f5;">📅 ${game.release_date}</span>` : ''}
+                                <div class="scores-container" style="display:flex; gap:10px; margin-top:5px;">
+                                    <div class="score-box critic" style="background: #47bfff; color: #fff;" title="ציון מבקרים">
+                                        ⭐ ${game.critic_score || 0}%
+                                    </div>
+                                    <div class="score-box audience" title="ציון קהל">
+                                        🍿 ${game.audience_score || 0}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="game-descriptions">
+                            ${game.ai_description ? `<p class="game-description ai-desc" style="color: #67c1f5; font-style: italic; margin-bottom: 8px; font-size: 0.95em; border-right: 2px solid #67c1f5; padding-right: 8px;">🤖 <strong>תיאור AI:</strong> ${game.ai_description}</p>` : ''}
+                            <p class="game-description critic-desc" style="margin-top: 0; padding-right: 8px;">✍️ <strong>תגובת המבקר:</strong> ${game.description || 'אין תיאור מבקר.'}</p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-self: flex-end;">
+                            <button class="refresh-btn" onclick="refreshGameImage('${game._id}')" style="background: #27ae60; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">רענן תמונה</button>
+                            ${window.currentUser && (window.currentUser.role === 'developer' || window.currentUser.role === 'critic') ? 
+                                `<button class="delete-btn" onclick="deleteGame('${game._id}', this)">מחק</button>` : ''}
+                        </div>
+                    </div>
+                `;
+                gameList.appendChild(li);
+            });
+        }
+
+        // חיפוש סדרת משחקים
+        async function searchSeries() {
+            const query = document.getElementById('game-title').value.trim();
+            const platform = document.getElementById('platform-filter').value;
+            if (!query) return;
+            
+            const select = document.getElementById('series-results');
+            select.innerHTML = '<option>מחפש משחקים...</option>';
+            select.style.display = 'block';
+            
+            const res = await fetch(`/game/search?q=${encodeURIComponent(query)}&platform=${platform}`);
+            const items = await res.json();
+            
+            if (items.length > 0) {
+                select.innerHTML = items.map(item => 
+                    `<option value="${item.id}" data-title="${item.name}" data-img="${item.img}" data-date="${item.released || ''}">${item.name} (${item.source})</option>`
+                ).join('');
+            } else {
+                select.innerHTML = '<option value="">לא נמצאו תוצאות - הזן שם ידני</option>';
+            }
+        }
+
+        // הוספת משחק חדש
+        document.getElementById('add-btn').addEventListener('click', async () => {
+            const seriesSelect = document.getElementById('series-results');
+            let title = document.getElementById('game-title').value.trim();
+            let imageUrl = null;
+
+            // אם המשתמש בחר משחק מהרשימה שנפתחה
+            if (seriesSelect.style.display !== 'none' && seriesSelect.value) {
+                const selectedOption = seriesSelect.options[seriesSelect.selectedIndex];
+                title = selectedOption.getAttribute('data-title');
+                imageUrl = selectedOption.getAttribute('data-img');
+                const releaseDate = selectedOption.getAttribute('data-date');
+                if (releaseDate) document.getElementById('game-release-date').value = releaseDate;
+            }
+            
+            if (!title) {
+                alert("חובה להזין שם למשחק");
+                return;
+            }
+
+            const genre = document.getElementById('game-genre').value;
+            const criticScore = parseInt(document.getElementById('game-rating').value); // זהו ציון המבקרים הראשוני
+            const releaseDate = document.getElementById('game-release-date').value;
+            const description = document.getElementById('game-desc').value.trim();
+
+            const response = await fetch('/game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, genre, dev_rating: criticScore, description, image_url: imageUrl, release_date: releaseDate }) // נשתמש ב-dev_rating כציון מבקרים ראשוני
+            });
+            
+            if (response.ok) {
+                document.getElementById('game-title').value = '';
+                document.getElementById('game-desc').value = '';
+                seriesSelect.style.display = 'none';
+                fetchGames();
+            } else {
+                const err = await response.json();
+                alert("שגיאה: " + (err.message || "לא ניתן להוסיף את המשחק"));
+            }
+        });
+
+        // עדכון סטטוס (בוצע/לא בוצע)
+        window.toggleComplete = async (id, completed) => {
+            await fetch(`/game/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ completed })
+            });
+            fetchGames();
+        };
+
+        // רענון תמונה למשחק ספציפי
+        window.refreshGameImage = async (id) => {
+            const response = await fetch(`/game/${id}/refresh-image`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                fetchGames();
+            } else {
+                alert("שגיאה ברענון התמונה");
+            }
+        };
+
+        // מחיקת משחק
+        window.deleteGame = async (id, btn) => {
+            if (!confirm('האם אתה בטוח שברצונך למחוק?')) return;
+            
+            const response = await fetch(`/game/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                // מוצאים את אלמנט הליסט ומפעילים את האנימציה
+                const item = btn.closest('.game-item');
+                item.classList.add('removing');
+                
+                // מחכים שהאנימציה תסתיים לפני ריענון הרשימה
+                item.addEventListener('animationend', () => {
+                    fetchGames();
+                });
+            }
+        };
+
+        // פונקציה לשליפת הז'אנרים הקיימים ב-DB ויצירת הכפתורים
+        async function fetchDynamicGenres() {
+            try {
+                const res = await fetch('/game/genres');
+                const genres = await res.json(); // מערך של אובייקטים {_id: "Genre", count: X}
+                const container = document.getElementById('genre-tags');
+                
+                // חישוב סך כל המשחקים עבור כפתור "הכל"
+                const totalCount = genres.reduce((acc, curr) => acc + curr.count, 0);
+                
+                const allActive = currentGenreFilter === 'All' ? 'active' : '';
+                // שומרים רק את כפתור "הכל" ומנקים את השאר (אם היו)
+                container.innerHTML = `<button class="tag-btn ${allActive}" onclick="filterByGenre('All')" data-genre="All" data-i18n="all_genres">הכל (${totalCount})</button>`;
+                
+                genres.forEach(genreObj => {
+                    const genreName = genreObj._id;
+                    const count = genreObj.count;
+                    
+                    if (genreName && genreName !== 'All') {
+                        const isActive = genreName === currentGenreFilter ? 'active' : '';
+                        const btn = document.createElement('button');
+                        btn.className = `tag-btn ${isActive}`;
+                        btn.innerHTML = `${genreName} <small style="opacity: 0.7; font-size: 0.85em;">(${count})</small>`;
+                        btn.setAttribute('data-genre', genreName);
+                        btn.onclick = () => filterByGenre(genreName);
+                        container.appendChild(btn);
+                    }
+                });
+            } catch (e) {
+                console.error("Error fetching genres:", e);
+            }
+        }
+
+        async function handleGenerateAllDescriptions() {
+            if (!confirm("האם לייצר תיאורי AI לכל המשחקים שחסר להם תיאור? הפעולה עשויה לקחת כמה שניות.")) return;
+            
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerText = "מעבד...";
+            
+            const res = await fetch('/game/generate-missing-descriptions', { method: 'POST' });
+            const data = await res.json();
+            
+            alert(`הפעולה הושלמה! עודכנו ${data.updated_count} משחקים.`);
+            btn.disabled = false;
+            btn.innerText = "🤖 ייצור תיאורים חסרים";
+            fetchGames(); // רענון הרשימה
+        }
+
+        // ניהול מצב כהה/בהיר
+        const themeBtn = document.getElementById('theme-btn');
+        
+        // בדיקת העדפה שמורה
+        if (localStorage.getItem('theme') === 'light') {
+            document.body.classList.add('light-mode');
+            themeBtn.textContent = '☀️';
+        }
+
+        themeBtn.onclick = () => {
+            const isLight = document.body.classList.toggle('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            themeBtn.textContent = isLight ? '☀️' : '🌙';
+        };
+
+        // מערכת תרגום
+        const translations = {
+            he: {
+                app_title: "רשימת משחקים (Pro)",
+                search_placeholder: "חפש משחק באתר...",
+                all_genres: "הכל",
+                add_search_placeholder: "חפש שם של משחק או סדרה...",
+                search_series: "חפש בסדרות",
+                critic_rating_placeholder: "ציון מבקרים (0-100)",
+                desc_placeholder: "תיאור/המלצה על המשחק...",
+                add_game_btn: "הוסף משחק",
+                stats_total: "משחקים בספרייה:",
+                stats_avg: "ציון קהל ממוצע:",
+                sort_label: "מיון:",
+                sort_date: "תאריך יציאה (חדש קודם)",
+                sort_score: "ציון גבוה קודם",
+                sort_title: "שם (א-ת)",
+                cols_label: "טורים:",
+                genre_action: "פעולה",
+                genre_adventure: "הרפתקה",
+                genre_rpg: "תפקידים",
+                genre_strategy: "אסטרטגיה",
+                genre_sports: "ספורט",
+                genre_shooting: "יריות",
+                genre_puzzle: "פאזלים",
+                genre_simulation: "סימולציה",
+                genre_horror: "אימה",
+                genre_racing: "מרוצים"
+            },
+            en: {
+                app_title: "Pro Game List",
+                search_placeholder: "Search games on site...",
+                all_genres: "All",
+                add_search_placeholder: "Search game name or series...",
+                search_series: "Search Series",
+                critic_rating_placeholder: "Critic Score (0-100)",
+                desc_placeholder: "Description/Review of the game...",
+                add_game_btn: "Add Game",
+                stats_total: "Games in Library:",
+                stats_avg: "Avg Audience Score:",
+                sort_label: "Sort:",
+                sort_date: "Release Date (New)",
+                sort_score: "High Score first",
+                sort_title: "Name (A-Z)",
+                cols_label: "Cols:",
+                genre_action: "Action",
+                genre_adventure: "Adventure",
+                genre_rpg: "RPG",
+                genre_strategy: "Strategy",
+                genre_sports: "Sports",
+                genre_shooting: "Shooter",
+                genre_puzzle: "Puzzle",
+                genre_simulation: "Simulation",
+                genre_horror: "Horror",
+                genre_racing: "Racing"
+            }
+        };
+
+        const langBtn = document.getElementById('lang-btn');
+        function updateLanguage(lang) {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) el.innerText = translations[lang][key];
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (translations[lang][key]) el.placeholder = translations[lang][key];
+            });
+            document.body.classList.toggle('en-lang', lang === 'en');
+            langBtn.innerText = lang === 'en' ? 'HE' : 'EN';
+            localStorage.setItem('lang', lang);
+        }
+
+        langBtn.onclick = () => {
+            const currentLang = localStorage.getItem('lang') === 'en' ? 'he' : 'en';
+            updateLanguage(currentLang);
+        };
+
+        // אתחול שפה
+        const savedLang = localStorage.getItem('lang') || 'he';
+        updateLanguage(savedLang);
+
+        checkAuth();
+        fetchGames();
+        fetchDynamicGenres(); // קריאה ליצירת התגיות
+    </script>
+</body>
+</html>

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>פרטי משחק - Eli Pro</title>
+    <style>
+        .details-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px var(--shadow);
+            margin-top: 20px;
+        }
+        .hero-image {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            border-bottom: 4px solid #2a475e;
+        }
+        .content-area { padding: 40px; }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #67c1f5;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .forum-section, .review-section, .add-review-form, .add-post-form {
+            margin-top: 40px;
+            background: var(--card-bg);
+            border-radius: 8px;
+        }
+        .critic-review-section {
+            background: var(--form-bg);
+            border: 2px solid #67c1f5;
+            margin-top: 20px;
+        }
+        .add-review-form, .add-post-form {
+            display: none; /* מוסתר כברירת מחדל, יוצג רק למשתמשים מחוברים */
+        }
+        .post-card {
+            background: #2a475e;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+        }
+        .score-big { font-size: 48px; font-weight: bold; color: #fff; }
+        input, textarea { background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 10px; width: 100%; margin-bottom: 10px; border-radius: 4px; }
+        .text-center { text-align: center; }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; border-radius: 8px; margin: 10px 0; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        .community-header { 
+            background: linear-gradient(to bottom, transparent, #16202d);
+            padding: 20px 40px;
+            margin-top: -100px;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <button id="theme-btn" class="theme-toggle">🌙</button>
+    <div class="container">
+        <a href="/" class="back-link">→ חזרה לרשימה</a>
+        <div id="game-details" class="details-container">
+            <p style="padding: 20px;">טוען נתונים...</p>
+        </div>
+        
+        <div class="forum-section">
+            <h2 style="color: #67c1f5; border-bottom: 2px solid #2a475e; padding-bottom: 10px;">
+                קהילת המשחק: דיונים וסרטונים 🎮
+            </h2>
+            <div id="forum-list"></div>
+            <hr>
+            <div id="add-post-form" class="add-post-form">
+                <h4>הוסף פוסט חדש</h4>
+                <input type="text" id="forum-title" placeholder="כותרת הבעיה/פתרון">
+                <textarea id="forum-content" placeholder="מה תרצה לשתף עם הקהילה?"></textarea>
+                <input type="text" id="forum-video" placeholder="קישור לסרטון יוטיוב (אופציונלי)">
+                <button onclick="submitPost()" class="refresh-btn">פרסם בפורום</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameId = "{{ game_id }}";
+        let currentUser = null; // ישמש לאחסון פרטי המשתמש המחובר
+        let currentGameData = null; // שמירת נתוני המשחק לעריכה
+
+        async function checkAuthStatus() {
+            const res = await fetch('/me');
+            const data = await res.json();
+            if (data.logged_in) {
+                currentUser = data.user;
+                // הצגת טפסים למשתמש מחובר (אם הם קיימים ב-DOM)
+                const reviewForm = document.getElementById('add-review-form');
+                if (reviewForm) reviewForm.style.display = 'block';
+                if (document.getElementById('add-post-form')) document.getElementById('add-post-form').style.display = 'block';
+            } else {
+                currentUser = null;
+            }
+            return data.logged_in;
+        }
+
+        // פונקציה להצגת הודעה יפה על המסך
+        function showToast(message, isSuccess = false) {
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            if (isSuccess) toast.style.background = '#27ae60';
+            toast.innerText = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function loadGameDetails() {
+            const response = await fetch(`/game/${gameId}`);
+            if (response.ok) {
+                currentGameData = await response.json();
+                const game = currentGameData;
+                const container = document.getElementById('game-details');
+                
+                await checkAuthStatus(); // בדיקת סטטוס לפני הרינדור
+
+                // בדיקה האם המשתמש המחובר כבר דירג את המשחק
+                const userAlreadyRated = currentUser && (game.reviews || []).some(r => r.username === currentUser.username);
+
+                container.innerHTML = `
+                    <img src="${game.image_url}" class="hero-image" onerror="this.src='https://placehold.co/800x400?text=No+Image'">
+                    <div class="community-header">
+                        <div style="display:flex; justify-content: space-between; align-items: center;">
+                            <h1>${game.title}</h1>
+                            <div style="display:flex; gap:30px;">
+                                <div class="text-center"><span class="score-big" style="color:#67c1f5" title="מבקרים">⭐ ${game.critic_score || 0}%</span><br>מבקרים</div>
+                                <div class="text-center"><span class="score-big" style="color:#f1c40f">${game.audience_score}%</span><br>ציון קהל</div>
+                            </div>
+                        </div>
+                        <span class="genre-badge">${game.genre}</span>
+                        <div style="margin: 20px 0; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
+                            ${game.ai_description ? `<p style="color: #67c1f5; font-style: italic; border-right: 3px solid #67c1f5; padding-right: 10px; margin-bottom: 15px;">🤖 <strong>תיאור AI:</strong> ${game.ai_description}</p>` : ''}
+                            <p style="border-right: 3px solid #f1c40f; padding-right: 10px;">✍️ <strong>תגובת המבקר:</strong> ${game.description || 'המבקר טרם הוסיף את תגובתו.'}</p>
+                        </div>
+                        ${game.release_date ? `<p><span class="genre-badge" style="background:#2a475e; color:#67c1f5;">📅 תאריך יציאה: ${game.release_date}</span></p>` : ''}
+                        
+                        <button onclick="generateAIDescription()" class="refresh-btn" style="background:#8e44ad; margin-top:10px;">🤖 יצירת תיאור AI (Gemini)</button>
+                        <div id="critic-action-area"></div>
+                        
+                        <div id="add-review-form" class="review-section add-review-form" style="display: ${currentUser ? 'block' : 'none'}">
+                            <h3>דירוג הקהל: דרג את המשחק (1-5)</h3>
+                            ${userAlreadyRated ? `
+                                <p style="color: #27ae60; font-weight: bold;">כבר דירגת את המשחק הזה.</p>
+                                <button onclick="deleteReview()" class="refresh-btn" style="background:#e74c3c;">🗑️ מחק את הדירוג שלי</button>
+                            ` : `
+                                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                    <select id="user-rating" style="padding:10px; width:100px;">
+                                        <option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option>
+                                    </select>
+                                    <input type="text" id="review-video" placeholder="קישור לביקורת וידאו מיוטיוב (אופציונלי)" style="flex:1;">
+                                    <button onclick="submitReview()" class="refresh-btn">שלח דירוג וביקורת</button>
+                                </div>
+                            `}
+                        </div>
+                        
+                        <div class="review-section">
+                            <h3>ביקורות וידאו מהקהילה 📽️</h3>
+                            <div id="video-reviews-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">
+                                <!-- יתמלא בביקורות עם וידאו -->
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // הוספת טופס למבקרים בלבד
+                if (currentUser && (currentUser.role === 'critic' || currentUser.role === 'developer')) {
+                    const criticAlreadyRated = (game.critics_who_rated || []).includes(currentUser.username);
+                    document.getElementById('critic-action-area').innerHTML = `
+                        <button onclick="generateAIDescription()" class="refresh-btn" style="background:#8e44ad; margin-top:10px; width:100%;">🤖 יצירת תיאור AI (Gemini)</button>
+                        <button onclick="enableEditing()" class="refresh-btn" style="background:#f39c12; margin-bottom:10px; width:100%;">✏️ ערוך פרטי משחק</button>
+                        <div class="review-section critic-review-section">
+                            <h3 style="color:#67c1f5">לוח בקרה למבקר: הוסף את הדירוג המקצועי שלך</h3>
+                            ${criticAlreadyRated ? `
+                                <p style="color: #67c1f5; font-weight: bold;">כבר נתת דירוג מבקר למשחק זה.</p>
+                                <button onclick="deleteCriticReview()" class="refresh-btn" style="background:#e74c3c;">🗑️ מחק דירוג מבקר</button>
+                            ` : `
+                                <p>הזן ציון בין 0 ל-100 שישפיע על מדד המבקרים הרשמי:</p>
+                                <input type="number" id="critic-score-input" min="0" max="100" placeholder="ציון (0-100)" style="width: 150px;">
+                                <button onclick="submitCriticReview()" class="refresh-btn" style="background:#67c1f5;">עדכן מדד מבקרים</button>
+                            `}
+                        </div>
+                    `;
+                }
+
+                const forumList = document.getElementById('forum-list');
+                if (game.forum_posts && game.forum_posts.length > 0) {
+                    // מיון הפוסטים לפי כמות לייקים (פופולריות) בסדר יורד
+                    const sortedPosts = [...game.forum_posts].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
+                    
+                    forumList.innerHTML = sortedPosts.map(post => {
+                        const likesCount = post.likes ? post.likes.length : 0;
+                        const isLiked = currentUser && post.likes && post.likes.includes(currentUser.username);
+                        return `
+                    <div class="post-card">
+                        <strong>${post.title}</strong> <small>מאת <a href="/profile/${post.username}" style="color:#67c1f5;">${post.username}</a></small>
+                        <p>${post.content}</p>
+                        ${post.video_url ? `<div class="video-container"><iframe src="${post.video_url}" allowfullscreen></iframe></div>` : ''}
+                        <button onclick="toggleLike('${post.id}')" class="like-btn ${isLiked ? 'liked' : ''}">
+                            👍 ${likesCount} לייקים
+                        </button>
+                    </div>
+                `}).join('');
+                } else {
+                    forumList.innerHTML = '<p>אין פוסטים בפורום עדיין. היה הראשון לפרסם!</p>';
+                }
+
+                // מילוי ביקורות וידאו
+                const videoList = document.getElementById('video-reviews-list');
+                const reviewsWithVideo = (game.reviews || []).filter(r => r.video_url);
+                if (reviewsWithVideo.length > 0) {
+                    videoList.innerHTML = reviewsWithVideo.map(rev => `
+                        <div class="post-card" style="margin-bottom:0;">
+                            <div class="video-container"><iframe src="${rev.video_url}" allowfullscreen></iframe></div>
+                            <small>ביקורת של <strong>${rev.username}</strong> - ${rev.rating} ★</small>
+                        </div>
+                    `).join('');
+                } else {
+                    videoList.innerHTML = '<p>אין עדיין ביקורות וידאו למשחק זה.</p>';
+                }
+            }
+        }
+
+        async function generateAIDescription() {
+            const response = await fetch(`/game/${gameId}/generate-description`, { method: 'POST' });
+            if (response.ok) {
+                const data = await response.json();
+                showToast("התיאור נוצר בהצלחה!", true);
+                loadGameDetails(); // רענון כדי לראות את התיאור החדש
+            } else {
+                const err = await response.json();
+                showToast(err.message || "שגיאה ביצירת התיאור");
+            }
+        }
+
+        function enableEditing() {
+            const container = document.getElementById('game-details');
+            const game = currentGameData;
+            
+            container.innerHTML = `
+                <div class="content-area">
+                    <h2 style="color:#f39c12">עריכת פרטי משחק</h2>
+                    <label>שם המשחק:</label>
+                    <input type="text" id="edit-title" value="${game.title}">
+                    
+                    <label>ז'אנר:</label>
+                    <select id="edit-genre">
+                        <option value="Action" ${game.genre === 'Action' ? 'selected' : ''}>פעולה</option>
+                        <option value="Adventure" ${game.genre === 'Adventure' ? 'selected' : ''}>הרפתקה</option>
+                        <option value="RPG" ${game.genre === 'RPG' ? 'selected' : ''}>תפקידים</option>
+                        <option value="Strategy" ${game.genre === 'Strategy' ? 'selected' : ''}>אסטרטגיה</option>
+                        <option value="Sports" ${game.genre === 'Sports' ? 'selected' : ''}>ספורט</option>
+                        <option value="Shooting" ${game.genre === 'Shooting' ? 'selected' : ''}>יריות</option>
+                        <option value="Puzzle" ${game.genre === 'Puzzle' ? 'selected' : ''}>פאזלים</option>
+                        <option value="Simulation" ${game.genre === 'Simulation' ? 'selected' : ''}>סימולציה</option>
+                        <option value="Horror" ${game.genre === 'Horror' ? 'selected' : ''}>אימה</option>
+                        <option value="Racing" ${game.genre === 'Racing' ? 'selected' : ''}>מרוצים</option>
+                    </select>
+                    
+                    <label>תיאור:</label>
+                    <textarea id="edit-desc" rows="5">${game.description || ''}</textarea>
+                    
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button onclick="saveGameEdits()" class="refresh-btn" style="background:#27ae60;">💾 שמור שינויים</button>
+                        <button onclick="loadGameDetails()" class="refresh-btn" style="background:#e74c3c;">❌ ביטול</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveGameEdits() {
+            const title = document.getElementById('edit-title').value;
+            const genre = document.getElementById('edit-genre').value;
+            const description = document.getElementById('edit-desc').value;
+
+            const response = await fetch(`/game/${gameId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ title, genre, description })
+            });
+
+            if (response.ok) {
+                showToast("המשחק עודכן בהצלחה!", true);
+                loadGameDetails();
+            } else {
+                const err = await response.json();
+                showToast(err.message || "שגיאה בעדכון המשחק");
+            }
+        }
+
+        async function submitCriticReview() {
+            if (!document.getElementById('critic-score-input')) return;
+            const score = parseInt(document.getElementById('critic-score-input').value);
+            if (isNaN(score) || score < 0 || score > 100) {
+                alert("נא להזין ציון תקין בין 0 ל-100");
+                return;
+            }
+            
+            const response = await fetch(`/game/${gameId}/critic-review`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ score })
+            });
+            
+            if (response.ok) { 
+                showToast("דירוג המבקר עודכן בהצלחה!", true); 
+                loadGameDetails(); 
+            } else {
+                const err = await response.json();
+                showToast(err.message || "שגיאה בעדכון דירוג המבקר");
+            }
+        }
+
+        async function deleteCriticReview() {
+            if (!confirm("האם למחוק את דירוג המבקר שלך? המדד הרשמי יתעדכן.")) return;
+            
+            const response = await fetch(`/game/${gameId}/critic-review`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast("דירוג המבקר נמחק", true);
+                loadGameDetails();
+            } else {
+                const err = await response.json();
+                showToast(err.message || "שגיאה במחיקה");
+            }
+        }
+
+        async function submitReview() {
+            const ratingEl = document.getElementById('user-rating');
+            const rating = ratingEl ? parseInt(ratingEl.value) : null;
+            const video_url = document.getElementById('review-video').value;
+            
+            if (!currentUser) {
+                showToast("עליך להתחבר כדי לדרג משחקים.");
+                return;
+            }
+            const response = await fetch(`/game/${gameId}/review`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ rating, video_url }) 
+            });
+
+            if (response.ok) {
+                showToast("הדירוג שלך נשמר!", true);
+                loadGameDetails();
+            } else {
+                const err = await response.json();
+                showToast(err.message || "שגיאה בדירוג המשחק");
+            }
+        }
+
+        async function deleteReview() {
+            if (!confirm("בטוח שברצונך למחוק את הדירוג שלך? הממוצע הכללי יעודכן בהתאם.")) return;
+            
+            const response = await fetch(`/game/${gameId}/review`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                showToast("הדירוג נמחק בהצלחה", true);
+                loadGameDetails();
+            } else {
+                const err = await response.json();
+                showToast(err.message || "שגיאה במחיקת הדירוג");
+            }
+        }
+
+        async function submitPost() {
+            const title = document.getElementById('forum-title').value;
+            const content = document.getElementById('forum-content').value;
+            const video_url = document.getElementById('forum-video').value;
+            if (!currentUser) {
+                showToast("עליך להתחבר כדי לפרסם בפורום.");
+                return;
+            }
+            await fetch(`/game/${gameId}/forum`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ title, content, video_url })
+            });
+            location.reload();
+        }
+
+        async function toggleLike(postId) {
+            if (!currentUser) {
+                showToast("עליך להתחבר כדי לעשות לייק.");
+                return;
+            }
+            const response = await fetch(`/game/${gameId}/forum/${postId}/like`, { method: 'POST' });
+            if (response.ok) {
+                loadGameDetails(); // רענון הנתונים להצגת הלייק המעודכן
+            }
+        }
+
+        // ניהול מצב כהה/בהיר
+        const themeBtn = document.getElementById('theme-btn');
+        
+        // בדיקת העדפה שמורה
+        if (localStorage.getItem('theme') === 'light') {
+            document.body.classList.add('light-mode');
+            themeBtn.textContent = '☀️';
+        }
+
+        themeBtn.onclick = () => {
+            const isLight = document.body.classList.toggle('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            themeBtn.textContent = isLight ? '☀️' : '🌙';
+        };
+
+        loadGameDetails();
+    </script>
+</body>
+</html>

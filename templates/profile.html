@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>פרופיל משתמש - {{ profile_user }}</title>
+    <style>
+
+        .profile-header { background: var(--form-bg); padding: 40px; border-radius: 12px; margin-bottom: 30px; text-align: center; }
+        .section-title { color: #67c1f5; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 40px; }
+        .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        .activity-card { background: var(--card-bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .stats-box { display: flex; justify-content: center; gap: 20px; margin-top: 15px; color: #acb2b8; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" style="color: #67c1f5; text-decoration: none;">← חזרה לבית</a>
+        
+        <div class="profile-header">
+            <h1 style="margin:0;">פרופיל המשתמש: {{ profile_user }}</h1>
+            <div class="stats-box">
+                <span>עוקבים: <strong id="followers-count">0</strong></span>
+                <span>עוקב אחרי: <strong id="following-count">0</strong></span>
+            </div>
+            <p id="stats-summary">טוען פעילות...</p>
+            <div id="follow-action" style="margin-top: 15px; display: none;">
+                <button id="follow-btn" onclick="toggleFollow()" class="layout-btn" style="padding: 10px 25px;"></button>
+            </div>
+        </div>
+
+        <h2 class="section-title">ביקורות וידאו 📽️</h2>
+        <div id="videos-list" class="video-grid"></div>
+
+        <h2 class="section-title">פוסטים בקהילה 💬</h2>
+        <div id="posts-list" style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        const profileUser = "{{ profile_user }}";
+        let currentUser = null;
+
+        // פונקציה להצגת הודעות
+        function showToast(message, isSuccess = false) {
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+            if (isSuccess) toast.style.background = '#27ae60';
+            toast.innerText = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function checkAuth() {
+            const res = await fetch('/me');
+            const data = await res.json();
+            if (data.logged_in) currentUser = data.user;
+        }
+
+        async function loadProfile() {
+            await checkAuth();
+            const res = await fetch(`/api/profile/${profileUser}`);
+            const data = await res.json();
+
+            document.getElementById('stats-summary').innerText = 
+                `שיתף ${data.videos.length} סרטונים ופרסם ${data.posts.length} פוסטים בקהילות.`;
+                
+            document.getElementById('followers-count').innerText = data.followers_count;
+            document.getElementById('following-count').innerText = data.following_count;
+
+            if (currentUser && currentUser.username !== profileUser) {
+                const followBtn = document.getElementById('follow-btn');
+                document.getElementById('follow-action').style.display = 'block';
+                followBtn.innerText = data.is_following ? 'הסר עקיבה 👤' : 'עקוב אחרי המבקר ➕';
+                followBtn.style.background = data.is_following ? '#e74c3c' : '#4c6b22';
+            }
+
+            const videosList = document.getElementById('videos-list');
+            if (data.videos.length > 0) {
+                videosList.innerHTML = data.videos.map(v => `
+                    <div class="activity-card">
+                        <h4 style="margin-top:0;"><a href="/game-view/${v.game_id}" style="color:white; text-decoration:none;">${v.game_title}</a></h4>
+                        <div class="video-container">
+                            <iframe src="${v.video_url}" allowfullscreen></iframe>
+                        </div>
+                        <p style="color:#f1c40f; margin-bottom:0;">דירוג: ${v.rating} ★</p>
+                    </div>
+                `).join('');
+            } else {
+                videosList.innerHTML = '<p>אין עדיין סרטונים להצגה.</p>';
+            }
+
+            const postsList = document.getElementById('posts-list');
+            if (data.posts.length > 0) {
+                postsList.innerHTML = data.posts.map(p => `
+                    <div class="activity-card">
+                        <small style="color:#67c1f5;">בקהילת: ${p.game_title}</small>
+                        <h3 style="margin: 5px 0;">${p.title}</h3>
+                        <p>${p.content}</p>
+                        <a href="/game-view/${p.game_id}" style="color:#67c1f5; font-size:12px;">צפה בשיחה המלאה ←</a>
+                    </div>
+                `).join('');
+            } else {
+                postsList.innerHTML = '<p>אין עדיין פוסטים להצגה.</p>';
+            }
+        }
+
+        async function toggleFollow() {
+            const res = await fetch(`/profile/${profileUser}/follow`, { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                showToast(data.is_following ? "אתה עוקב כעת!" : "הוסרה העקיבה", true);
+                loadProfile();
+            } else {
+                const err = await res.json();
+                showToast(err.message || "שגיאה בביצוע הפעולה");
+            }
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html>

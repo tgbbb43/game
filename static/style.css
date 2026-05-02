@@ -1,0 +1,411 @@
+/* הגדרות כלליות לדף (פונט וצבע רקע) */
+:root {
+    --bg-color: #1b2838;
+    --text-color: #c7d5e0;
+    --card-bg: #16202d;
+    --form-bg: #2a475e;
+    --input-bg: #101822;
+    --heading-color: #ffffff;
+    --btn-accent: #67c1f5;
+    --btn-accent-text: #1b2838;
+    --border-color: #2a475e;
+    --description-text: #acb2b8;
+    --shadow: rgba(0,0,0,0.3);
+    --dir: rtl;
+}
+
+body.light-mode {
+    --bg-color: #f4f7f9;
+    --text-color: #2c3e50;
+    --card-bg: #ffffff;
+    --form-bg: #dae2ed;
+    --input-bg: #ffffff;
+    --heading-color: #1b2838;
+    --btn-accent: #3498db;
+    --btn-accent-text: #ffffff;
+    --border-color: #cbd5e0;
+    --description-text: #505f75;
+    --shadow: rgba(0,0,0,0.1);
+}
+
+body.en-lang {
+    --dir: ltr;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    margin: 0;
+    padding: 20px;
+    color: var(--text-color);
+    direction: var(--dir);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* מיכל ראשי שימרכז את התוכן */
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* עיצוב הכותרת */
+h1 {
+    text-align: center;
+    color: var(--heading-color);
+    margin-bottom: 30px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* עיצוב הטופס להוספת משחקים */
+#game-form {
+    background: var(--form-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px var(--shadow);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+/* עיצוב שדות הקלט */
+#game-form input, 
+#game-form select, 
+#game-form textarea {
+    background: var(--input-bg);
+    color: var(--text-color);
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 16px;
+    flex: 1 1 200px; /* גודל מינימלי לפני מעבר שורה */
+}
+
+/* הגדרה ספציפית לתיאור (תופס שורה שלמה) */
+#game-form textarea {
+    flex: 1 1 100%;
+    height: 80px;
+    resize: none; /* מונע מהמשתמש לשנות את הגודל */
+}
+
+/* עיצוב כפתור ההוספה */
+#add-btn {
+    background: linear-gradient(to right, #47bfff 0%, #1a44c2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    flex: 1 1 100%; /* כפתור לרוחב מלא */
+    transition: background-color 0.3s;
+}
+
+#add-btn:hover {
+    filter: brightness(1.2);
+}
+
+/* עיצוב רשימת המשחקים */
+#game-list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+/* הגדרות טורים לפי בחירת משתמש */
+#game-list.cols-1 { grid-template-columns: 1fr; }
+#game-list.cols-2 { grid-template-columns: repeat(2, 1fr); }
+#game-list.cols-3 { grid-template-columns: repeat(3, 1fr); }
+#game-list.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* עיצוב כפתורי פריסה */
+.layout-btn {
+    background: var(--card-bg);
+    color: var(--text-color);
+    border: 2px solid var(--btn-accent);
+    padding: 5px 15px;
+    margin-right: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.layout-btn:hover {
+    background: var(--btn-accent);
+    color: var(--btn-accent-text);
+    transform: translateY(-2px);
+}
+
+/* סטטיסטיקה ומיון */
+.stats-bar {
+    display: flex;
+    justify-content: space-around;
+    background: var(--card-bg);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    font-weight: bold;
+    color: #67c1f5;
+}
+
+.stats-item span {
+    color: var(--heading-color);
+    margin-right: 5px;
+}
+
+/* עיצוב כרטיסיית משחק בודד */
+.game-item {
+    background: var(--card-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px var(--shadow);
+    transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    position: relative; /* הכרחי עבור מיקום האדווה */
+}
+
+.game-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+/* עיצוב האדווה */
+.ripple {
+    position: absolute;
+    /* background color set by JavaScript */
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple-effect 0.6s linear;
+    pointer-events: none; /* שלא יפריע ללחיצות */
+}
+
+@keyframes ripple-effect {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* אפקט לחיצה - כיווץ קטן של הכרטיסייה */
+.game-item:active {
+    transform: translateY(-2px) scale(0.97);
+    transition: transform 0.1s;
+}
+
+/* הגדרת סגנון למשחק שסומן כ"בוצע" */
+.game-item.completed {
+    opacity: 0.7;
+    border: 1px solid #2ecc71;
+}
+
+.game-card-image-container {
+    position: relative;
+    width: 100%;
+    height: 170px;
+    background: var(--form-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.game-card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-fallback {
+    display: none; /* מוסתר כברירת מחדל, מוצג רק אם התמונה נכשלה */
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, #1a44c2, #47bfff);
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+/* תוכן הכרטיסייה */
+.game-card-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    gap: 10px;
+}
+
+/* מיקום המידע (צ'קבוקס, כותרת, ז'אנר) */
+.game-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* עיצוב התגית (בג'ר) */
+.genre-badge {
+    background-color: #4c6b22;
+    color: #a4d007;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* עיצוב כוכבי הדירוג */
+.rating-display {
+    color: #f1c40f;
+    font-size: 18px;
+    margin-top: 5px;
+    display: block;
+}
+
+/* עיצוב התיאור */
+.game-description {
+    font-size: 14px;
+    color: var(--description-text);
+    margin: 10px 0;
+    flex-grow: 1; /* דוחף את כפתור המחיקה למטה */
+    line-height: 1.5;
+}
+
+/* עיצוב כפתור המחיקה */
+.delete-btn {
+    background-color: transparent;
+    border: 1px solid #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    align-self: flex-end;
+    transition: background-color 0.3s;
+}
+
+.delete-btn:hover {
+    background-color: #c0392b;
+}
+
+/* עיצוב הודעות צפות (Toast) */
+.toast-notification {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #e74c3c;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 50px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+    z-index: 10000;
+    font-weight: bold;
+    animation: slideUpFade 3s forwards;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+@keyframes slideUpFade {
+    0% { opacity: 0; bottom: 0; }
+    15% { opacity: 1; bottom: 30px; }
+    85% { opacity: 1; bottom: 30px; }
+    100% { opacity: 0; bottom: 0; }
+}
+
+/* עיצוב כפתורים ושדות במצב מושבת */
+button:disabled, input:disabled, select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+}
+
+/* עיצוב כפתור לייק */
+.like-btn {
+    background: none;
+    border: 1px solid #67c1f5;
+    color: #67c1f5;
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.3s;
+    margin-top: 10px;
+}
+.like-btn.liked {
+    background: #67c1f5;
+    color: #1b2838;
+}
+.like-btn:hover {
+    background: rgba(103, 193, 245, 0.2);
+}
+
+/* כפתור החלפת מצב (צף בצד) */
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    background: var(--form-bg);
+    color: var(--text-color);
+    border: 1px solid #67c1f5;
+    padding: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+/* כפתור החלפת שפה (מתחת לכפתור ה-theme) */
+.lang-toggle {
+    position: fixed;
+    top: 70px;
+    left: 20px;
+    z-index: 1000;
+    background: var(--form-bg);
+    color: var(--text-color);
+    border: 1px solid #67c1f5;
+    padding: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* עיצוב תגיות ז'אנר לסינון */
+.genre-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.tag-btn {
+    background: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 6px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.3s;
+}
+
+.tag-btn:hover, .tag-btn.active {
+    background: #67c1f5;
+    color: #1b2838;
+    border-color: #67c1f5;
+    font-weight: bold;
+}
